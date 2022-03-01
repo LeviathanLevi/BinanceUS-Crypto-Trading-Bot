@@ -12,6 +12,7 @@ API_URL = "https://api.binance.us"
 print(os.getenv('API_KEY'))
 
 # get all symbol prices
-prices = client.get_all_tickers()
-print(prices)
+#prices = client.get_all_tickers()
+price = client.get_symbol_ticker(symbol='BTCUSDP') #Get price of a ticker
+print(price)
 
