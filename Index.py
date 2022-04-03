@@ -1,19 +1,33 @@
 import os
+import asyncio
+import json
 
-from binance import Client, ThreadedWebsocketManager, ThreadedDepthCacheManager
+from binance import AsyncClient, ThreadedWebsocketManager, ThreadedDepthCacheManager
 from dotenv import load_dotenv
 
-load_dotenv()
+async def main():
+    # initialise the client
+    client = await AsyncClient.create()
 
-client = Client(os.getenv('API_KEY'), os.getenv('API_SECRET'))
+    # get env variables for API KEY and SECRET
+    load_dotenv()
+    print(os.getenv('API_KEY'))
+    client = AsyncClient(os.getenv('API_KEY'), os.getenv('API_SECRET'), tld='us')
 
-API_URL = "https://api.binance.us"
+    #API_URL = "https://api.binance.us"
 
-#print(os.getenv('API_KEY'))
+    # run some simple requests
+    #print(json.dumps(await client.get_exchange_info(), indent=2))
+    
+    print(json.dumps(await client.get_symbol_ticker(symbol="BTCUSDT"), indent=2))
 
-# get all symbol prices
-#prices = client.get_all_tickers()
-while True:
-    price = client.get_symbol_ticker(symbol='BTCUSDP')['price'] #Get price of a ticker
-    print(price)
+    print("started main") 
+
+    await client.close_connection()
+
+
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
+   
 
