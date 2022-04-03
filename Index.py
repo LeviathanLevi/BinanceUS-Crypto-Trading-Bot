@@ -2,7 +2,7 @@ import os
 import asyncio
 import json
 
-from binance import AsyncClient, ThreadedWebsocketManager, ThreadedDepthCacheManager
+from binance import AsyncClient, DepthCacheManager, BinanceSocketManager 
 from dotenv import load_dotenv
 
 async def main():
@@ -18,10 +18,19 @@ async def main():
 
     # run some simple requests
     #print(json.dumps(await client.get_exchange_info(), indent=2))
-    
-    print(json.dumps(await client.get_symbol_ticker(symbol="BTCUSDT"), indent=2))
+    #print(json.dumps(await client.get_symbol_ticker(symbol="BTCUSDT"), indent=2))
 
     print("started main") 
+
+    # initialise websocket factory manager
+    bsm = BinanceSocketManager(client)
+
+    # create listener using async with
+    # this will exit and close the connection after 5 messages
+    async with bsm.trade_socket('BTCUSD') as ts:
+        while True:
+            res = await ts.recv()
+            print(f'recv {res}')
 
     await client.close_connection()
 
