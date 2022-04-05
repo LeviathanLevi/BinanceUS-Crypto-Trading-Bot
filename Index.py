@@ -2,28 +2,32 @@ import os
 import asyncio
 import json
 
-from binance import AsyncClient, DepthCacheManager, BinanceSocketManager 
+from binance import AsyncClient, DepthCacheManager, BinanceSocketManager
 from dotenv import load_dotenv
 
 async def main():
     # Get trading pair:
     TRADESYMBOL = input("Enter the symbol you'd like to trade (ex: BTCUSD): ")
-    print(TRADESYMBOL)
+    SELLPOSITIONDELTA = float(input("Enter the sell position delta (ex: .02): "))
+    BUYPOSITIONDELTA = float(input("Enter the buy position delta (ex: .015): "))
+    BASEAMOUNTTOTRADE = float(input("Enter the base currency amount to trade with (BTC ex: 0.00054): "))
+
     # initialise the client
     client = await AsyncClient.create()
 
     # get env variables for API KEY and SECRET
     load_dotenv()
-    print(os.getenv('API_KEY'))
+
     client = AsyncClient(os.getenv('API_KEY'), os.getenv('API_SECRET'), tld='us')
 
-    #API_URL = "https://api.binance.us"
+    symbolInfo = await client.get_symbol_info(TRADESYMBOL)
 
-    # run some simple requests
-    #print(json.dumps(await client.get_exchange_info(), indent=2))
-    #print(json.dumps(await client.get_symbol_ticker(symbol="BTCUSDT"), indent=2))
+    info = await client.get_account()
+    print(info)
 
-    print("started main") 
+    fees = await client.get_trade_fee(symbal=TRADESYMBOL)
+
+    print(fees)
 
     # initialise websocket factory manager
     bsm = BinanceSocketManager(client)
@@ -41,5 +45,3 @@ async def main():
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
-   
-
