@@ -6,6 +6,9 @@ from binance import AsyncClient, DepthCacheManager, BinanceSocketManager
 from dotenv import load_dotenv
 
 async def main():
+    # Get trading pair:
+    TRADESYMBOL = input("Enter the symbol you'd like to trade (ex: BTCUSD): ")
+    print(TRADESYMBOL)
     # initialise the client
     client = await AsyncClient.create()
 
@@ -27,7 +30,7 @@ async def main():
 
     # create listener using async with
     # this will exit and close the connection after 5 messages
-    async with bsm.trade_socket('BTCUSD') as ts:
+    async with bsm.trade_socket(TRADESYMBOL) as ts:
         while True:
             res = await ts.recv()
             print(f'recv {res}')
