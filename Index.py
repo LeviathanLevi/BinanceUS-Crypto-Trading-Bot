@@ -1,6 +1,7 @@
 import os
 import asyncio
 import json
+from symtable import Symbol
 
 from binance import AsyncClient, DepthCacheManager, BinanceSocketManager
 from dotenv import load_dotenv
@@ -20,14 +21,9 @@ async def main():
 
     client = AsyncClient(os.getenv('API_KEY'), os.getenv('API_SECRET'), tld='us')
 
-    symbolInfo = await client.get_symbol_info(TRADESYMBOL)
-
-    info = await client.get_account()
-    print(info)
-
-    fees = await client.get_trade_fee(symbal=TRADESYMBOL)
-
-    print(fees)
+    symbolInfo = await client.get_symbol_info(TRADESYMBOL) # baseAssetPrecision and quotePrecision
+    print(symbolInfo)
+    info = await client.get_account() # Fees: makerCommission and takerCommission 
 
     # initialise websocket factory manager
     bsm = BinanceSocketManager(client)
@@ -36,7 +32,7 @@ async def main():
     # this will exit and close the connection after 5 messages
     async with bsm.trade_socket(TRADESYMBOL) as ts:
         while True:
-            res = await ts.recv()
+            res = await ts.recv() # 'p'
             print(f'recv {res}')
 
     await client.close_connection()
