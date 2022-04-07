@@ -1,7 +1,9 @@
+from ast import Not
 import os
 import asyncio
 import json
 from symtable import Symbol
+from operator import itemgetter
 
 from binance import AsyncClient, DepthCacheManager, BinanceSocketManager
 from dotenv import load_dotenv
@@ -22,8 +24,13 @@ async def main():
     client = AsyncClient(os.getenv('API_KEY'), os.getenv('API_SECRET'), tld='us')
 
     symbolInfo = await client.get_symbol_info(TRADESYMBOL) # baseAssetPrecision and quotePrecision
-    print(symbolInfo)
+
     info = await client.get_account() # Fees: makerCommission and takerCommission 
+
+    availableQuoteBalance = None
+    quoteBalance = next((balance for balance in info['balances'] if balance['asset'] == symbolInfo['quoteAsset']), None)
+    if quoteBalance is not None:
+        availableQuoteBalance = float(quoteBalance['free'])
 
     # initialise websocket factory manager
     bsm = BinanceSocketManager(client)
