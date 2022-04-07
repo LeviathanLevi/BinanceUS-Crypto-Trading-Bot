@@ -27,17 +27,23 @@ async def main():
 
     info = await client.get_account() # Fees: makerCommission and takerCommission 
 
+    #Remove this and let the user enter the trading amount?
     availableQuoteBalance = None
     quoteBalance = next((balance for balance in info['balances'] if balance['asset'] == symbolInfo['quoteAsset']), None)
     if quoteBalance is not None:
         availableQuoteBalance = float(quoteBalance['free'])
 
+    tradeData = {
+        'positionExists': False,
+        'lastPeakPrice': None,
+        'lastValleyPrice': None
+    }
+    
     # initialise websocket factory manager
     bsm = BinanceSocketManager(client)
 
-    # create listener using async with
-    # this will exit and close the connection after 5 messages
     async with bsm.trade_socket(TRADESYMBOL) as ts:
+
         while True:
             res = await ts.recv() # 'p'
             print(f'recv {res}')
