@@ -8,14 +8,25 @@ from operator import itemgetter
 from binance import AsyncClient, DepthCacheManager, BinanceSocketManager
 from dotenv import load_dotenv
 
+async def losePosition(tradeData):
+    while tradeData['positionExists'] == True:
+        print('lose')
+
+async def gainPosition(tradeData):
+    while tradeData['positionExists'] == False:
+        print('gain')
+
 async def beginTrading(tradeData):
     res = await tradeData['webSocket'].recv() 
+
     tradeData['currentPrice'] = res['p']
-    print(tradeData['currentPrice'])
+    tradeData['lastPeakPrice'] = res['p']
+    tradeData['lastValleyPrice'] = res['p']
+
     if tradeData['positionExists'] == False:
-        print("No position")
+        await gainPosition(tradeData)
     else:
-        print("position exists")
+        await losePosition(tradeData)
 
 async def main():
     # Get trading pair:
