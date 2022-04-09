@@ -8,37 +8,50 @@ from operator import itemgetter
 from binance import AsyncClient, DepthCacheManager, BinanceSocketManager
 from dotenv import load_dotenv
 
+async def sellPosition(tradeData):
+    print("Attempting to sell position")
+    tradeData['positionExists'] = False
+
 async def buyPosition(tradeData):
     print("Attempting to buy position")
     tradeData['positionExists'] = True
 
 async def losePosition(tradeData):
     while tradeData['positionExists'] == True:
-        print('lose')
+        #update price:
+        socketPriceUpdate = await tradeData['webSocket'].recv()
+        tradeData['currentPrice'] = float(socketPriceUpdate['p'])
+
+        if tradeData['lastPeakPrice'] < tradeData['currentPrice']:
+            tradeData['lastPeakPrice'] = tradeData['currentPrice']
+            tradeData['lastValleyPrice'] = tradeData['currentPrice']
+
+        elif tradeData['lastValleyPrice'] > tradeData['currentPrice']: 
+            tradeData['lastValleyPrice'] = tradeData['currentPrice']
+
+            target = tradeData['lastPeakPrice'] - (tradeData['lastPeakPrice'] * tradeData['SELLPOSITIONDELTA'])
+            receivedValue = (tradeData['currentPrice'] * tradeData['quoteTradeBalance']) - ((tradeData['currentPrice'] * tradeData['quoteTradeBalance']) * ((float(tradeData['info']['takerCommission']) * .0001)))
+
+            if (tradeData['lastValleyPrice'] <= target) and (receivedValue > tradeData['positionAcquiredCost']): 
+                await sellPosition(tradeData)
 
 async def gainPosition(tradeData):
     while tradeData['positionExists'] == False:
         #update price:
         socketPriceUpdate = await tradeData['webSocket'].recv()
         tradeData['currentPrice'] = float(socketPriceUpdate['p'])
-        print(tradeData['currentPrice'])
+
         if tradeData['lastPeakPrice'] < tradeData['currentPrice']:
             tradeData['lastPeakPrice'] = tradeData['currentPrice'] #new peak price hit
 
             target = tradeData['lastValleyPrice'] + (tradeData['lastValleyPrice'] * tradeData['BUYPOSITIONDELTA'])
             
-            print(tradeData['lastPeakPrice'])
-            print('>=')
-            print(target)
-
             if tradeData['lastPeakPrice'] >= target:
-                print("TRUE")
                 await buyPosition(tradeData)
 
         elif tradeData['lastValleyPrice'] > tradeData['currentPrice']:
             tradeData['lastPeakPrice'] = tradeData['currentPrice']
             tradeData['lastValleyPrice'] = tradeData['currentPrice']
-            print('LVP' + str(tradeData['lastValleyPrice']))
 
 async def beginTrading(tradeData):
     res = await tradeData['webSocket'].recv() 
@@ -89,7 +102,8 @@ async def main():
             'info': info,
             'quoteTradeBalance': quoteTradeBalance,
             'currentPrice': None,
-            'webSocket': ts
+            'webSocket': ts,
+            'positionAcquiredCost': None
         }
 
         await beginTrading(tradeData)
