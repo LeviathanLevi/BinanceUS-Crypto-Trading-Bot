@@ -8,25 +8,50 @@ from operator import itemgetter
 from binance import AsyncClient, DepthCacheManager, BinanceSocketManager
 from dotenv import load_dotenv
 
+async def buyPosition(tradeData):
+    print("Attempting to buy position")
+    tradeData['positionExists'] = True
+
 async def losePosition(tradeData):
     while tradeData['positionExists'] == True:
         print('lose')
 
 async def gainPosition(tradeData):
     while tradeData['positionExists'] == False:
-        print('gain')
+        #update price:
+        socketPriceUpdate = await tradeData['webSocket'].recv()
+        tradeData['currentPrice'] = float(socketPriceUpdate['p'])
+        print(tradeData['currentPrice'])
+        if tradeData['lastPeakPrice'] < tradeData['currentPrice']:
+            tradeData['lastPeakPrice'] = tradeData['currentPrice'] #new peak price hit
+
+            target = tradeData['lastValleyPrice'] + (tradeData['lastValleyPrice'] * tradeData['BUYPOSITIONDELTA'])
+            
+            print(tradeData['lastPeakPrice'])
+            print('>=')
+            print(target)
+
+            if tradeData['lastPeakPrice'] >= target:
+                print("TRUE")
+                await buyPosition(tradeData)
+
+        elif tradeData['lastValleyPrice'] > tradeData['currentPrice']:
+            tradeData['lastPeakPrice'] = tradeData['currentPrice']
+            tradeData['lastValleyPrice'] = tradeData['currentPrice']
+            print('LVP' + str(tradeData['lastValleyPrice']))
 
 async def beginTrading(tradeData):
     res = await tradeData['webSocket'].recv() 
 
-    tradeData['currentPrice'] = res['p']
-    tradeData['lastPeakPrice'] = res['p']
-    tradeData['lastValleyPrice'] = res['p']
-
-    if tradeData['positionExists'] == False:
-        await gainPosition(tradeData)
-    else:
-        await losePosition(tradeData)
+    tradeData['currentPrice'] = float(res['p'])
+    tradeData['lastPeakPrice'] = float(res['p'])
+    tradeData['lastValleyPrice'] = float(res['p'])
+    
+    while True:
+        if tradeData['positionExists'] == False:
+            await gainPosition(tradeData)
+        else:
+            await losePosition(tradeData)
 
 async def main():
     # Get trading pair:
