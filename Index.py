@@ -9,6 +9,9 @@ from binance import AsyncClient, DepthCacheManager, BinanceSocketManager
 from dotenv import load_dotenv
 
 async def beginTrading(tradeData):
+    res = await tradeData['webSocket'].recv() 
+    tradeData['currentPrice'] = res['p']
+    print(tradeData['currentPrice'])
     if tradeData['positionExists'] == False:
         print("No position")
     else:
@@ -34,29 +37,26 @@ async def main():
 
     quoteTradeBalance = float(input('Enter the amount of {0} to trade with (BTC ex: 0.00054): '.format(symbolInfo['quoteAsset'])))
 
-    tradeData = {
-        'positionExists': False,
-        'lastPeakPrice': None,
-        'lastValleyPrice': None,
-        'TRADESYMBOL': TRADESYMBOL,
-        'SELLPOSITIONDELTA': SELLPOSITIONDELTA,
-        'BUYPOSITIONDELTA': BUYPOSITIONDELTA,
-        'client': client,
-        'symbolInfo': symbolInfo,
-        'info': info,
-        'quoteTradeBalance': quoteTradeBalance,
-        'currentPrice': None
-    }
-    
     # initialise websocket factory manager
     bsm = BinanceSocketManager(client)
 
     async with bsm.trade_socket(TRADESYMBOL) as ts:
+        tradeData = {
+            'positionExists': False,
+            'lastPeakPrice': None,
+            'lastValleyPrice': None,
+            'TRADESYMBOL': TRADESYMBOL,
+            'SELLPOSITIONDELTA': SELLPOSITIONDELTA,
+            'BUYPOSITIONDELTA': BUYPOSITIONDELTA,
+            'client': client,
+            'symbolInfo': symbolInfo,
+            'info': info,
+            'quoteTradeBalance': quoteTradeBalance,
+            'currentPrice': None,
+            'webSocket': ts
+        }
 
-        while True:
-            res = await ts.recv() 
-            tradeData['currentPrice'] = res['p']
-            await beginTrading(tradeData)
+        await beginTrading(tradeData)
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
