@@ -8,6 +8,7 @@ from operator import itemgetter
 from binance import AsyncClient, DepthCacheManager, BinanceSocketManager
 from dotenv import load_dotenv
 from binance.enums import *
+from datetime import datetime
 
 async def sellPosition(tradeData):
     print('Attempting to sell position')
@@ -24,7 +25,7 @@ async def buyPosition(tradeData):
     print(priceToBuy)
     print(orderSize)
 
-    order = tradeData['client'].create_order(
+    order = await tradeData['client'].create_order(
         symbol=tradeData['TRADESYMBOL'],
         side=SIDE_BUY,
         type=ORDER_TYPE_LIMIT,
@@ -32,15 +33,34 @@ async def buyPosition(tradeData):
         quantity=orderSize,
         price=priceToBuy)
 
-    order['orderId']
+    orderId = order['orderId']
 
     # wait for order to be filled or cancelled:
+    index = 0
+    while tradeData['positionExists'] == False and index < 300:
+        index += 1
+        await asyncio.sleep(1) 
 
+        orderDetails = await tradeData['client'].get_order(tradeData['TRADESYMBOL'], orderId)
 
-    #round((tradeData['quoteTradeBalance'] / tradeData['positionAcquiredPrice']), 8)
+        if orderDetails['status'] == ORDER_STATUS_FILLED:
+            tradeData['positionExists'] = True
+            tradeData['positionAcquiredPrice'] = float(orderDetails['price'])
+            tradeData['positionAcquiredCost'] = (float(orderDetails['origQty']) * float(orderDetails['price'])) + ((float(orderDetails['origQty']) * float(orderDetails['price'])) * (float(tradeData['info']['takerCommission']) * .0001)) 
 
-    print('Attempting to buy position')
-    tradeData['positionExists'] = True
+            now = datetime.now()
+            dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+
+            fo = open("orders.txt", "a")
+            fo.write(dt_string + '   Buy:' + tradeData['TRADESYMBOL'] + ' ' + 'Price: ' + str(orderDetails['price']) + 'Quantity: ' + str(orderDetails['origQty']) + 'Cost: ' + str(tradeData['positionAcquiredPrice']))
+            fo.close()
+
+            break
+    
+    if tradeData['positionExists'] == False:
+        await tradeData['client'].cancel_order(
+        symbol=tradeData['TRADESYMBOL'],
+        orderId=orderId)
 
 async def losePosition(tradeData):
     while tradeData['positionExists'] == True:
