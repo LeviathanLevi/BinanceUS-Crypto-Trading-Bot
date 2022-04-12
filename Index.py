@@ -10,6 +10,13 @@ from dotenv import load_dotenv
 from binance.enums import *
 from datetime import datetime
 
+async def round_down(tradeData, quantity):
+    step_size = [float(_['stepSize']) for _ in tradeData['symbolInfo']['filters'] if _['filterType'] == 'LOT_SIZE'][0]
+    step_size = '%.8f' % step_size
+    step_size = step_size.rstrip('0')
+    decimals = len(step_size.split('.')[1])
+    return math.floor(quantity * 10 ** decimals) / 10 ** decimals
+
 async def sellPosition(tradeData):
     print('Attempting to sell position')
     tradeData['positionExists'] = False
@@ -18,7 +25,9 @@ async def buyPosition(tradeData):
     amountToSpend = tradeData['quoteTradeBalance'] - (tradeData['quoteTradeBalance'] * (float(tradeData['info']['takerCommission']) * .0001))  #Subtract fees
     amountToSpend = round(amountToSpend, tradeData['symbolInfo']['quoteAssetPrecision'])
     priceToBuy = round(tradeData['currentPrice'], tradeData['symbolInfo']['baseAssetPrecision'])
-    orderSize = round(amountToSpend / priceToBuy, tradeData['baseAssetPrecision'])
+    orderSize = round(amountToSpend / priceToBuy, tradeData['symbolInfo']['quotePrecision'])
+
+    orderSize = round_down(tradeData, orderSize)
     
     print('order info: ')
     print(amountToSpend)
@@ -33,7 +42,7 @@ async def buyPosition(tradeData):
         quantity=orderSize,
         price=priceToBuy)
 
-    orderId = order['orderId']
+    orderID = order['orderId']
 
     # wait for order to be filled or cancelled:
     index = 0
@@ -41,7 +50,7 @@ async def buyPosition(tradeData):
         index += 1
         await asyncio.sleep(1) 
 
-        orderDetails = await tradeData['client'].get_order(tradeData['TRADESYMBOL'], orderId)
+        orderDetails = await tradeData['client'].get_order(symbol=tradeData['TRADESYMBOL'], orderId=orderID)
 
         if orderDetails['status'] == ORDER_STATUS_FILLED:
             tradeData['positionExists'] = True
@@ -52,7 +61,7 @@ async def buyPosition(tradeData):
             dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
 
             fo = open("orders.txt", "a")
-            fo.write(dt_string + '   Buy:' + tradeData['TRADESYMBOL'] + ' ' + 'Price: ' + str(orderDetails['price']) + 'Quantity: ' + str(orderDetails['origQty']) + 'Cost: ' + str(tradeData['positionAcquiredPrice']))
+            fo.write(dt_string + ': Buy:' + tradeData['TRADESYMBOL'] + ' Price: ' + str(orderDetails['price']) + ' Quantity: ' + str(orderDetails['origQty']) + ' Cost: ' + str(tradeData['positionAcquiredPrice']))
             fo.close()
 
             break
@@ -60,7 +69,7 @@ async def buyPosition(tradeData):
     if tradeData['positionExists'] == False:
         await tradeData['client'].cancel_order(
         symbol=tradeData['TRADESYMBOL'],
-        orderId=orderId)
+        orderId=orderID)
 
 async def losePosition(tradeData):
     while tradeData['positionExists'] == True:
@@ -123,6 +132,8 @@ async def beginTrading(tradeData):
     #tradeData['baseBalance'] = round((tradeData['quoteTradeBalance'] / tradeData['positionAcquiredPrice']), 8)
     #print('currentPrice: ' + str(tradeData['currentPrice']) + 'positionAcquiredPrice: ' + str(tradeData['positionAcquiredPrice']) + 'baseBalance: ' + str(tradeData['baseBalance']))
 
+    
+
     while True:
         if tradeData['positionExists'] == False:
             await gainPosition(tradeData)
@@ -144,7 +155,7 @@ async def main():
     client = AsyncClient(os.getenv('API_KEY'), os.getenv('API_SECRET'), tld='us')
 
     symbolInfo = await client.get_symbol_info(TRADESYMBOL) # baseAssetPrecision and quotePrecision
-    #print(symbolInfo)
+    print(symbolInfo)
     info = await client.get_account() # Fees: makerCommission and takerCommission 
 
     quoteTradeBalance = float(input('Enter the amount of {0} to trade with (BTC ex: 0.00054, should be less then the max for rounding errors, and greater then the minimum order amount): '.format(symbolInfo['quoteAsset'])))
@@ -175,3 +186,5 @@ async def main():
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
+
+    
