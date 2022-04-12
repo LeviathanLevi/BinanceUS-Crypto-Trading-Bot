@@ -25,9 +25,8 @@ async def buyPosition(tradeData):
     amountToSpend = tradeData['quoteTradeBalance'] - (tradeData['quoteTradeBalance'] * (float(tradeData['info']['takerCommission']) * .0001))  #Subtract fees
     amountToSpend = round(amountToSpend, tradeData['symbolInfo']['quoteAssetPrecision'])
     priceToBuy = round(tradeData['currentPrice'], tradeData['symbolInfo']['baseAssetPrecision'])
-    orderSize = round(amountToSpend / priceToBuy, tradeData['symbolInfo']['quotePrecision'])
-
-    orderSize = round_down(tradeData, orderSize)
+    orderSize = amountToSpend / priceToBuy
+    orderSize = await round_down(tradeData, orderSize)
     
     print('order info: ')
     print(amountToSpend)
@@ -42,6 +41,9 @@ async def buyPosition(tradeData):
         quantity=orderSize,
         price=priceToBuy)
 
+    print('ORDER:')
+    print(order)
+
     orderID = order['orderId']
 
     # wait for order to be filled or cancelled:
@@ -52,16 +54,20 @@ async def buyPosition(tradeData):
 
         orderDetails = await tradeData['client'].get_order(symbol=tradeData['TRADESYMBOL'], orderId=orderID)
 
+        print('orderDetails')
+        print(orderDetails)
+
         if orderDetails['status'] == ORDER_STATUS_FILLED:
             tradeData['positionExists'] = True
             tradeData['positionAcquiredPrice'] = float(orderDetails['price'])
             tradeData['positionAcquiredCost'] = (float(orderDetails['origQty']) * float(orderDetails['price'])) + ((float(orderDetails['origQty']) * float(orderDetails['price'])) * (float(tradeData['info']['takerCommission']) * .0001)) 
+            tradeData['baseBalance'] = float(orderDetails['executedQty'])
 
             now = datetime.now()
             dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
 
             fo = open("orders.txt", "a")
-            fo.write(dt_string + ': Buy:' + tradeData['TRADESYMBOL'] + ' Price: ' + str(orderDetails['price']) + ' Quantity: ' + str(orderDetails['origQty']) + ' Cost: ' + str(tradeData['positionAcquiredPrice']))
+            fo.write(dt_string + ': Buy:' + tradeData['TRADESYMBOL'] + ' Price: ' + str(orderDetails['price']) + ' Quantity: ' + str(orderDetails['origQty']) + ' Cost: ' + str(tradeData['positionAcquiredPrice']) + '\n')
             fo.close()
 
             break
