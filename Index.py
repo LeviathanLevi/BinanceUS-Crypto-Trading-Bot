@@ -16,10 +16,26 @@ async def sellPosition(tradeData):
 async def buyPosition(tradeData):
     amountToSpend = tradeData['quoteTradeBalance'] - (tradeData['quoteTradeBalance'] * (float(tradeData['info']['takerCommission']) * .0001))  #Subtract fees
     amountToSpend = round(amountToSpend, tradeData['symbolInfo']['quoteAssetPrecision'])
-
     priceToBuy = round(tradeData['currentPrice'], tradeData['symbolInfo']['baseAssetPrecision'])
-
+    orderSize = round(amountToSpend / priceToBuy, tradeData['baseAssetPrecision'])
     
+    print('order info: ')
+    print(amountToSpend)
+    print(priceToBuy)
+    print(orderSize)
+
+    order = tradeData['client'].create_order(
+        symbol=tradeData['TRADESYMBOL'],
+        side=SIDE_BUY,
+        type=ORDER_TYPE_LIMIT,
+        timeInForce=TIME_IN_FORCE_FOK,
+        quantity=orderSize,
+        price=priceToBuy)
+
+    order['orderId']
+
+    # wait for order to be filled or cancelled:
+
 
     #round((tradeData['quoteTradeBalance'] / tradeData['positionAcquiredPrice']), 8)
 
