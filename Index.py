@@ -22,28 +22,63 @@ async def getTotalFees(order):
     for fill in order['fills']:
         totalCommission += float(fill['commission'])
         if fill['commissionasset'] != 'USD':
-            print("WE HAVE A PROBLEM: commision Asset =" + fill['commissionasset'])
+            print('WE HAVE A PROBLEM: commision Asset =' + fill['commissionasset'])
+            quit()
 
     return totalCommission
 
 async def sellPosition(tradeData):
     priceToSell = round(tradeData['currentPrice'], tradeData['symbolInfo']['quoteAssetPrecision'])
+    orderSize = roundOrderSizeDown(tradeData['baseBalance'])
 
+    order = await tradeData['client'].create_order(
+        symbol=tradeData['tradeSymbol'],
+        side=SIDE_SELL,
+        type=ORDER_TYPE_LIMIT,
+        timeInForce=TIME_IN_FORCE_FOK,
+        quantity=orderSize,
+        price=priceToSell)
 
+    # wait for order to be filled or cancelled:
+    index = 0
+    while tradeData['positionExists'] == True and index < 300:
+        index += 1
+        await asyncio.sleep(1) 
+
+        if order['status'] == ORDER_STATUS_FILLED:
+            tradeData['positionExists'] = False
+            tradeData['positionAcquiredPrice'] = None
+            tradeData['positionAcquiredCost'] = None
+            tradeData['baseBalance'] = None
+
+            profit = ((float(order['executedQty']) * float(order['price'])) - tradeData['positionAcquiredCost']) - getTotalFees(order)
+
+            now = datetime.now()
+            dt_string = now.strftime('%d/%m/%Y %H:%M:%S')
+
+            fo = open('orders.txt', 'a')
+            fo.write(dt_string + ': Sell:' + tradeData['tradeSymbol'] + ' Price: ' + str(order['price']) + ' Quantity: ' + str(order['executedQty']) + ' Profit: ' + str(profit) + '\n')
+            fo.close()
+
+            break
+    
+    if tradeData['positionExists'] == True:
+        await tradeData['client'].cancel_order(
+        symbol=tradeData['tradeSymbol'],
+        orderId=order['orderId'])
+
+    
 
 async def buyPosition(tradeData):
-    amountToSpend = tradeData['quoteTradeBalance'] - (tradeData['quoteTradeBalance'] * (float(tradeData['info']['takerCommission']) * .0001))  #Subtract fees
+    amountToSpend = tradeData['quoteTradeBalance'] - (tradeData['quoteTradeBalance'] * (float(tradeData['accountInfo']['takerCommission']) * .0001))  #Subtract fees
     priceToBuy = round(tradeData['currentPrice'], tradeData['symbolInfo']['quoteAssetPrecision'])
     orderSize = amountToSpend / priceToBuy
     orderSize = await roundOrderSizeDown(tradeData, orderSize)
     
-    print('order info: ')
-    print(amountToSpend)
-    print(priceToBuy)
-    print(orderSize)
+    print('Placing order, orderSize: ' + str(orderSize) + ' priceToBuy: ' + str(priceToBuy))
 
     order = await tradeData['client'].create_order(
-        symbol=tradeData['TRADESYMBOL'],
+        symbol=tradeData['tradeSymbol'],
         side=SIDE_BUY,
         type=ORDER_TYPE_LIMIT,
         timeInForce=TIME_IN_FORCE_FOK,
@@ -53,8 +88,6 @@ async def buyPosition(tradeData):
     print('ORDER:')
     print(order)
 
-    orderID = order['orderId']
-
     # wait for order to be filled or cancelled:
     index = 0
     while tradeData['positionExists'] == False and index < 300:
@@ -62,67 +95,66 @@ async def buyPosition(tradeData):
         await asyncio.sleep(1) 
 
         if order['status'] == ORDER_STATUS_FILLED:
+            print('Order state is filled.')
+
             tradeData['positionExists'] = True
             tradeData['positionAcquiredPrice'] = float(order['price'])
-            fees = getTotalFees(order)
-            tradeData['positionAcquiredCost'] = (float(order['origQty']) * float(order['price'])) + fees
             tradeData['baseBalance'] = float(order['executedQty'])
+            fees = getTotalFees(order)
+            tradeData['positionAcquiredCost'] = (tradeData['baseBalance'] * tradeData['positionAcquiredPrice']) + fees
+
+            print('positionAcquiredPrice: ' + str(tradeData['positionAcquiredPrice']) + ' baseBalance: ' + str(tradeData['baseBalance']) + ' fees: ' + fees + ' positionAcquiredCost: ' + str(tradeData['positionAcquiredPrice']))
 
             now = datetime.now()
-            dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
-
-            fo = open("orders.txt", "a")
-            fo.write(dt_string + ': Buy:' + tradeData['TRADESYMBOL'] + ' Price: ' + str(order['price']) + ' Quantity: ' + str(order['origQty']) + ' Cost: ' + str(tradeData['positionAcquiredPrice']) + '\n')
+            dt_string = now.strftime('%d/%m/%Y %H:%M:%S')
+            fo = open('orders.txt', 'a')
+            fo.write(dt_string + ': Buy:' + tradeData['tradeSymbol'] + ' Price: ' + str(order['price']) + ' Quantity: ' + str(order['executedQty']) + ' Cost: ' + str(tradeData['positionAcquiredPrice']) + '\n')
             fo.close()
 
             break
     
     if tradeData['positionExists'] == False:
         await tradeData['client'].cancel_order(
-        symbol=tradeData['TRADESYMBOL'],
-        orderId=orderID)
+        symbol=tradeData['tradeSymbol'],
+        orderId=order['orderId'])
 
 async def losePosition(tradeData):
     while tradeData['positionExists'] == True:
-        #update price:
         socketPriceUpdate = await tradeData['webSocket'].recv()
         tradeData['currentPrice'] = float(socketPriceUpdate['p'])
 
         if tradeData['lastPeakPrice'] < tradeData['currentPrice']:
             tradeData['lastPeakPrice'] = tradeData['currentPrice']
             tradeData['lastValleyPrice'] = tradeData['currentPrice']
-            print('LPP: ' + str(tradeData['lastPeakPrice']))
 
         elif tradeData['lastValleyPrice'] > tradeData['currentPrice']: 
             tradeData['lastValleyPrice'] = tradeData['currentPrice']
 
-            target = tradeData['lastPeakPrice'] - (tradeData['lastPeakPrice'] * tradeData['SELLPOSITIONDELTA'])
-            receivedValue = (tradeData['currentPrice'] * tradeData['baseBalance']) - ((tradeData['currentPrice'] * tradeData['baseBalance']) * ((float(tradeData['info']['takerCommission']) * .0001))) #Should Taker or Maker fees be used in this calculation?
-            print(str(tradeData['currentPrice'] * tradeData['baseBalance']))
-            print('-')
-            print(str((tradeData['currentPrice'] * tradeData['baseBalance'])))
-            print('*')
-            print(str(((float(tradeData['info']['takerCommission']) * .0001))))
+            target = tradeData['lastPeakPrice'] - (tradeData['lastPeakPrice'] * tradeData['sellPositionDelta'])
+            receivedValue = (tradeData['currentPrice'] * tradeData['baseBalance']) - ((tradeData['currentPrice'] * tradeData['baseBalance']) * ((float(tradeData['accountInfo']['takerCommission']) * .0001))) #Should Taker or Maker fees be used in this calculation?
 
-            print('testing: ' + 'LPP: ' + str(tradeData['lastValleyPrice']) + ' <= ' + str(target))
-            print('and: ' + 'recivedValue: ' + str(receivedValue) + ' > ' + 'positionAcquiredCost: ' + str(tradeData['positionAcquiredCost']))
+            print('New Valley Price: ' + str(tradeData['lastValleyPrice']))
+            print('Must be less than or equal to target to trigger a sell, target: ' + str(target) + ' and ' + 'the received value: ' + str(receivedValue) + ' must be greater than the  ' + 'positionAcquiredCost: ' + str(tradeData['positionAcquiredCost']))
 
             if (tradeData['lastValleyPrice'] <= target) and (receivedValue > tradeData['positionAcquiredCost']): 
+                print('Entering sell position.')
                 await sellPosition(tradeData)
 
 async def gainPosition(tradeData):
     while tradeData['positionExists'] == False:
-        #update price:
         socketPriceUpdate = await tradeData['webSocket'].recv()
         tradeData['currentPrice'] = float(socketPriceUpdate['p'])
 
         if tradeData['lastPeakPrice'] < tradeData['currentPrice']:
             tradeData['lastPeakPrice'] = tradeData['currentPrice'] #new peak price hit
-            print('NPP: ' + str(tradeData['currentPrice']))
 
-            target = tradeData['lastValleyPrice'] + (tradeData['lastValleyPrice'] * tradeData['BUYPOSITIONDELTA'])
+            target = tradeData['lastValleyPrice'] + (tradeData['lastValleyPrice'] * tradeData['buyPositionDelta'])
             
+            print('New Peak Price: ' + str(tradeData['lastPeakPrice']))
+            print('Must be greater than or equal to target to trigger a purchase, target: ' + str(target))
+
             if tradeData['lastPeakPrice'] >= target:
+                print('Entering buy position.')
                 await buyPosition(tradeData)
 
         elif tradeData['lastValleyPrice'] > tradeData['currentPrice']:
@@ -130,72 +162,62 @@ async def gainPosition(tradeData):
             tradeData['lastValleyPrice'] = tradeData['currentPrice']
 
 async def beginTrading(tradeData):
-    res = await tradeData['webSocket'].recv() 
-
-    tradeData['currentPrice'] = float(res['p'])
-    tradeData['lastPeakPrice'] = float(res['p'])
-    tradeData['lastValleyPrice'] = float(res['p'])
-
-    #TESTING:
-    #tradeData['positionExists'] = True
-    #tradeData['positionAcquiredCost'] = tradeData['quoteTradeBalance']
-    #tradeData['positionAcquiredPrice'] = tradeData['currentPrice'] - (tradeData['currentPrice'] * .02)
-    #tradeData['baseBalance'] = round((tradeData['quoteTradeBalance'] / tradeData['positionAcquiredPrice']), 8)
-    #print('currentPrice: ' + str(tradeData['currentPrice']) + 'positionAcquiredPrice: ' + str(tradeData['positionAcquiredPrice']) + 'baseBalance: ' + str(tradeData['baseBalance']))
-
-    
+    socketPriceUpdate = await tradeData['webSocket'].recv() 
+    tradeData['currentPrice'] = float(socketPriceUpdate['p'])
+    tradeData['lastPeakPrice'] = tradeData['currentPrice']
+    tradeData['lastValleyPrice'] = tradeData['currentPrice']
 
     while True:
         if tradeData['positionExists'] == False:
+            print('Entering gain position function.')
             await gainPosition(tradeData)
         else:
+            print('Entering lose position function.')
             await losePosition(tradeData)
 
 async def main():
-    # Get trading pair:
-    TRADESYMBOL = input('Enter the symbol you\'d like to trade (ex: BTCUSD): ')
-    SELLPOSITIONDELTA = float(input('Enter the sell position delta (ex: .02): '))
-    BUYPOSITIONDELTA = float(input('Enter the buy position delta (ex: .015): '))
+    tradeSymbol = input('Enter the symbol you\'d like to trade (ex: BTCUSD): ')
+    sellPositionDelta = float(input('Enter the sell position delta (ex: .02): '))
+    buyPositionDelta = float(input('Enter the buy position delta (ex: .015): '))
 
-    # initialise the client
     client = await AsyncClient.create()
 
-    # get env variables for API KEY and SECRET
     load_dotenv()
 
     client = AsyncClient(os.getenv('API_KEY'), os.getenv('API_SECRET'), tld='us')
 
-    symbolInfo = await client.get_symbol_info(TRADESYMBOL) # baseAssetPrecision and quotePrecision
-    print(symbolInfo)
-    info = await client.get_account() # Fees: makerCommission and takerCommission 
+    symbolInfo = await client.get_symbol_info(tradeSymbol)
+
+    accountInfo = await client.get_account()
 
     quoteTradeBalance = float(input('Enter the amount of {0} to trade with (BTC ex: 0.00054, should be less then the max for rounding errors, and greater then the minimum order amount): '.format(symbolInfo['quoteAsset'])))
 
-    # initialise websocket factory manager
     bsm = BinanceSocketManager(client)
 
-    async with bsm.trade_socket(TRADESYMBOL) as ts:
+    async with bsm.trade_socket(tradeSymbol) as ts:
         tradeData = {
             'positionExists': False,
             'lastPeakPrice': None,
             'lastValleyPrice': None,
-            'TRADESYMBOL': TRADESYMBOL,
-            'SELLPOSITIONDELTA': SELLPOSITIONDELTA,
-            'BUYPOSITIONDELTA': BUYPOSITIONDELTA,
+            'tradeSymbol': tradeSymbol,
+            'sellPositionDelta': sellPositionDelta,
+            'buyPositionDelta': buyPositionDelta,
             'client': client,
             'symbolInfo': symbolInfo,
-            'info': info,
+            'accountInfo': accountInfo,
             'quoteTradeBalance': quoteTradeBalance,
             'currentPrice': None,
             'webSocket': ts,
             'positionAcquiredCost': None,
+            'positionAcquiredPrice': None,
             'baseBalance': None
         }
+
+        print('Initial Trade Data: ')
+        print(tradeData)
 
         await beginTrading(tradeData)
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
-
-    
