@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from binance.enums import *
 from datetime import datetime
 
+# Rounds the order size down based on the maximum precision level allowed by the lot filter size
 async def roundOrderSizeDown(tradeData, quantity):
     step_size = [float(_['stepSize']) for _ in tradeData['symbolInfo']['filters'] if _['filterType'] == 'LOT_SIZE'][0]
     step_size = '%.8f' % step_size
@@ -14,6 +15,7 @@ async def roundOrderSizeDown(tradeData, quantity):
     decimals = len(step_size.split('.')[1])
     return math.floor(quantity * 10 ** decimals) / 10 ** decimals
 
+# Sums the commission fees paid in the order fills
 async def getTotalFees(order):
     totalCommission = 0.0
     for fill in order['fills']:
@@ -24,6 +26,7 @@ async def getTotalFees(order):
 
     return totalCommission
 
+# Sells the existing position based on the trade data by placing a limit order and waiting for it to be filled 
 async def sellPosition(tradeData):
     priceToSell = round(tradeData['currentPrice'], tradeData['symbolInfo']['quoteAssetPrecision'])
     orderSize = roundOrderSizeDown(tradeData['baseBalance'])
@@ -69,10 +72,9 @@ async def sellPosition(tradeData):
         symbol=tradeData['tradeSymbol'],
         orderId=order['orderId'])
 
-    
-
+# Buys into a new position by placing a limit order and waiting for it to be filled
 async def buyPosition(tradeData):
-    amountToSpend = tradeData['quoteTradeBalance'] - (tradeData['quoteTradeBalance'] * (float(tradeData['accountInfo']['takerCommission']) * .0001))  #Subtract fees
+    amountToSpend = tradeData['quoteTradeBalance'] - (tradeData['quoteTradeBalance'] * (float(tradeData['accountInfo']['takerCommission']) * .0001))  # Subtract fees
     priceToBuy = round(tradeData['currentPrice'], tradeData['symbolInfo']['quoteAssetPrecision'])
     orderSize = amountToSpend / priceToBuy
     orderSize = await roundOrderSizeDown(tradeData, orderSize)
@@ -120,6 +122,7 @@ async def buyPosition(tradeData):
         symbol=tradeData['tradeSymbol'],
         orderId=order['orderId'])
 
+# Loops on price updates until the price drops by the specified delta and is a profitable trade then triggers the sell
 async def losePosition(tradeData):
     while tradeData['positionExists'] == True:
         socketPriceUpdate = await tradeData['webSocket'].recv()
@@ -133,7 +136,7 @@ async def losePosition(tradeData):
             tradeData['lastValleyPrice'] = tradeData['currentPrice']
 
             target = tradeData['lastPeakPrice'] - (tradeData['lastPeakPrice'] * tradeData['sellPositionDelta'])
-            receivedValue = (tradeData['currentPrice'] * tradeData['baseBalance']) - ((tradeData['currentPrice'] * tradeData['baseBalance']) * ((float(tradeData['accountInfo']['takerCommission']) * .0001))) #Should Taker or Maker fees be used in this calculation?
+            receivedValue = (tradeData['currentPrice'] * tradeData['baseBalance']) - ((tradeData['currentPrice'] * tradeData['baseBalance']) * ((float(tradeData['accountInfo']['takerCommission']) * .0001))) # Should Taker or Maker fees be used in this calculation?
 
             logging.debug('New Valley Price: ' + str(tradeData['lastValleyPrice']))
             logging.debug('Must be less than or equal to target to trigger a sell, target: ' + str(target) + ' and ' + 'the received value: ' + str(receivedValue) + ' must be greater than the  ' + 'positionAcquiredCost: ' + str(tradeData['positionAcquiredCost']))
@@ -142,6 +145,7 @@ async def losePosition(tradeData):
                 logging.info('Entering sell position.')
                 await sellPosition(tradeData)
 
+# Loops on price updates until the price increases by the specified delta then triggers the buy
 async def gainPosition(tradeData):
     while tradeData['positionExists'] == False:
         socketPriceUpdate = await tradeData['webSocket'].recv()
@@ -163,6 +167,7 @@ async def gainPosition(tradeData):
             tradeData['lastPeakPrice'] = tradeData['currentPrice']
             tradeData['lastValleyPrice'] = tradeData['currentPrice']
 
+# Begins an infinite trading loop that alternates between gainPosition and losePosition based on if the position exists
 async def beginTrading(tradeData):
     socketPriceUpdate = await tradeData['webSocket'].recv() 
     tradeData['currentPrice'] = float(socketPriceUpdate['p'])
@@ -177,9 +182,10 @@ async def beginTrading(tradeData):
             logging.info('Entering lose position function.')
             await losePosition(tradeData)
 
+# Configures the logging, gets input from the user, configures the client, gets symbol and account info, initializes the socket manager
 async def main():
     # Configure the logging system
-    logging.basicConfig(filename ='botLog.log', level = logging.DEBUG)
+    logging.basicConfig(filename ='botLog.log', level = logging.INFO)
 
     tradeSymbol = input('Enter the symbol you\'d like to trade (ex: BTCUSD): ')
     sellPositionDelta = float(input('Enter the sell position delta (ex: .02): '))
@@ -221,8 +227,11 @@ async def main():
         logging.info('Initial Trade Data: ')
         logging.info(tradeData)
 
+        print('Beginning trading, see log file for more information. All orders placed by bot will be recorded in orders.txt')
+
         await beginTrading(tradeData)
 
+# Starts the program asynchronously 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
