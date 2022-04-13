@@ -31,6 +31,8 @@ async def sellPosition(tradeData):
     priceToSell = round(tradeData['currentPrice'], tradeData['symbolInfo']['quoteAssetPrecision'])
     orderSize = roundOrderSizeDown(tradeData['baseBalance'])
 
+    print('Placing sell order, orderSize: ' + str(orderSize) + ' priceToSell: ' + str(priceToSell))
+
     order = await tradeData['client'].create_order(
         symbol=tradeData['tradeSymbol'],
         side=SIDE_SELL,
@@ -39,6 +41,9 @@ async def sellPosition(tradeData):
         quantity=orderSize,
         price=priceToSell)
 
+    print('ORDER:')
+    print(order)
+
     # wait for order to be filled or cancelled:
     index = 0
     while tradeData['positionExists'] == True and index < 300:
@@ -46,16 +51,16 @@ async def sellPosition(tradeData):
         await asyncio.sleep(1) 
 
         if order['status'] == ORDER_STATUS_FILLED:
+            print('Order state is filled.')
+
             tradeData['positionExists'] = False
-            tradeData['positionAcquiredPrice'] = None
-            tradeData['positionAcquiredCost'] = None
-            tradeData['baseBalance'] = None
 
             profit = ((float(order['executedQty']) * float(order['price'])) - tradeData['positionAcquiredCost']) - getTotalFees(order)
 
+            print('Sell order fees: ' + str(getTotalFees(order)) + ' quantitiy: ' + str(order['executedQty']) + ' price: ' + str(order['price']))
+
             now = datetime.now()
             dt_string = now.strftime('%d/%m/%Y %H:%M:%S')
-
             fo = open('orders.txt', 'a')
             fo.write(dt_string + ': Sell:' + tradeData['tradeSymbol'] + ' Price: ' + str(order['price']) + ' Quantity: ' + str(order['executedQty']) + ' Profit: ' + str(profit) + '\n')
             fo.close()
@@ -75,7 +80,7 @@ async def buyPosition(tradeData):
     orderSize = amountToSpend / priceToBuy
     orderSize = await roundOrderSizeDown(tradeData, orderSize)
     
-    print('Placing order, orderSize: ' + str(orderSize) + ' priceToBuy: ' + str(priceToBuy))
+    print('Placing buy order, orderSize: ' + str(orderSize) + ' priceToBuy: ' + str(priceToBuy))
 
     order = await tradeData['client'].create_order(
         symbol=tradeData['tradeSymbol'],
