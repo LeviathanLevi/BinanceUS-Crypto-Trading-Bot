@@ -18,13 +18,11 @@ async def round_down(tradeData, quantity):
     return math.floor(quantity * 10 ** decimals) / 10 ** decimals
 
 async def sellPosition(tradeData):
-    print('Attempting to sell position')
-    tradeData['positionExists'] = False
+    priceToSell = round(tradeData['currentPrice'], tradeData['symbolInfo']['quoteAssetPrecision'])
 
 async def buyPosition(tradeData):
     amountToSpend = tradeData['quoteTradeBalance'] - (tradeData['quoteTradeBalance'] * (float(tradeData['info']['takerCommission']) * .0001))  #Subtract fees
-    amountToSpend = round(amountToSpend, tradeData['symbolInfo']['quoteAssetPrecision'])
-    priceToBuy = round(tradeData['currentPrice'], tradeData['symbolInfo']['baseAssetPrecision'])
+    priceToBuy = round(tradeData['currentPrice'], tradeData['symbolInfo']['quoteAssetPrecision'])
     orderSize = amountToSpend / priceToBuy
     orderSize = await round_down(tradeData, orderSize)
     
