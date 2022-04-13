@@ -1,12 +1,8 @@
-from ast import Not
 import os
 import asyncio
-import json
 import math
 import logging
-from symtable import Symbol
-from operator import itemgetter
-from binance import AsyncClient, DepthCacheManager, BinanceSocketManager
+from binance import AsyncClient, BinanceSocketManager
 from dotenv import load_dotenv
 from binance.enums import *
 from datetime import datetime
