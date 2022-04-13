@@ -3,6 +3,7 @@ import os
 import asyncio
 import json
 import math
+import logging
 from symtable import Symbol
 from operator import itemgetter
 from binance import AsyncClient, DepthCacheManager, BinanceSocketManager
@@ -22,7 +23,7 @@ async def getTotalFees(order):
     for fill in order['fills']:
         totalCommission += float(fill['commission'])
         if fill['commissionasset'] != 'USD':
-            print('WE HAVE A PROBLEM: commision Asset =' + fill['commissionasset'])
+            logging.error('WE HAVE A PROBLEM: commision Asset =' + fill['commissionasset'])
             quit()
 
     return totalCommission
@@ -31,7 +32,7 @@ async def sellPosition(tradeData):
     priceToSell = round(tradeData['currentPrice'], tradeData['symbolInfo']['quoteAssetPrecision'])
     orderSize = roundOrderSizeDown(tradeData['baseBalance'])
 
-    print('Placing sell order, orderSize: ' + str(orderSize) + ' priceToSell: ' + str(priceToSell))
+    logging.info('Placing sell order, orderSize: ' + str(orderSize) + ' priceToSell: ' + str(priceToSell))
 
     order = await tradeData['client'].create_order(
         symbol=tradeData['tradeSymbol'],
@@ -41,8 +42,8 @@ async def sellPosition(tradeData):
         quantity=orderSize,
         price=priceToSell)
 
-    print('ORDER:')
-    print(order)
+    logging.info('ORDER:')
+    logging.info(order)
 
     # wait for order to be filled or cancelled:
     index = 0
@@ -51,13 +52,13 @@ async def sellPosition(tradeData):
         await asyncio.sleep(1) 
 
         if order['status'] == ORDER_STATUS_FILLED:
-            print('Order state is filled.')
+            logging.info('Order state is filled.')
 
             tradeData['positionExists'] = False
 
             profit = ((float(order['executedQty']) * float(order['price'])) - tradeData['positionAcquiredCost']) - getTotalFees(order)
 
-            print('Sell order fees: ' + str(getTotalFees(order)) + ' quantitiy: ' + str(order['executedQty']) + ' price: ' + str(order['price']))
+            logging.info('Sell order fees: ' + str(getTotalFees(order)) + ' quantitiy: ' + str(order['executedQty']) + ' price: ' + str(order['price']))
 
             now = datetime.now()
             dt_string = now.strftime('%d/%m/%Y %H:%M:%S')
@@ -80,7 +81,7 @@ async def buyPosition(tradeData):
     orderSize = amountToSpend / priceToBuy
     orderSize = await roundOrderSizeDown(tradeData, orderSize)
     
-    print('Placing buy order, orderSize: ' + str(orderSize) + ' priceToBuy: ' + str(priceToBuy))
+    logging.info('Placing buy order, orderSize: ' + str(orderSize) + ' priceToBuy: ' + str(priceToBuy))
 
     order = await tradeData['client'].create_order(
         symbol=tradeData['tradeSymbol'],
@@ -90,8 +91,8 @@ async def buyPosition(tradeData):
         quantity=orderSize,
         price=priceToBuy)
 
-    print('ORDER:')
-    print(order)
+    logging.info('ORDER:')
+    logging.info(order)
 
     # wait for order to be filled or cancelled:
     index = 0
@@ -100,7 +101,7 @@ async def buyPosition(tradeData):
         await asyncio.sleep(1) 
 
         if order['status'] == ORDER_STATUS_FILLED:
-            print('Order state is filled.')
+            logging.info('Order state is filled.')
 
             tradeData['positionExists'] = True
             tradeData['positionAcquiredPrice'] = float(order['price'])
@@ -108,7 +109,7 @@ async def buyPosition(tradeData):
             fees = getTotalFees(order)
             tradeData['positionAcquiredCost'] = (tradeData['baseBalance'] * tradeData['positionAcquiredPrice']) + fees
 
-            print('positionAcquiredPrice: ' + str(tradeData['positionAcquiredPrice']) + ' baseBalance: ' + str(tradeData['baseBalance']) + ' fees: ' + fees + ' positionAcquiredCost: ' + str(tradeData['positionAcquiredPrice']))
+            logging.info('positionAcquiredPrice: ' + str(tradeData['positionAcquiredPrice']) + ' baseBalance: ' + str(tradeData['baseBalance']) + ' fees: ' + fees + ' positionAcquiredCost: ' + str(tradeData['positionAcquiredPrice']))
 
             now = datetime.now()
             dt_string = now.strftime('%d/%m/%Y %H:%M:%S')
@@ -138,11 +139,11 @@ async def losePosition(tradeData):
             target = tradeData['lastPeakPrice'] - (tradeData['lastPeakPrice'] * tradeData['sellPositionDelta'])
             receivedValue = (tradeData['currentPrice'] * tradeData['baseBalance']) - ((tradeData['currentPrice'] * tradeData['baseBalance']) * ((float(tradeData['accountInfo']['takerCommission']) * .0001))) #Should Taker or Maker fees be used in this calculation?
 
-            print('New Valley Price: ' + str(tradeData['lastValleyPrice']))
-            print('Must be less than or equal to target to trigger a sell, target: ' + str(target) + ' and ' + 'the received value: ' + str(receivedValue) + ' must be greater than the  ' + 'positionAcquiredCost: ' + str(tradeData['positionAcquiredCost']))
+            logging.debug('New Valley Price: ' + str(tradeData['lastValleyPrice']))
+            logging.debug('Must be less than or equal to target to trigger a sell, target: ' + str(target) + ' and ' + 'the received value: ' + str(receivedValue) + ' must be greater than the  ' + 'positionAcquiredCost: ' + str(tradeData['positionAcquiredCost']))
 
             if (tradeData['lastValleyPrice'] <= target) and (receivedValue > tradeData['positionAcquiredCost']): 
-                print('Entering sell position.')
+                logging.info('Entering sell position.')
                 await sellPosition(tradeData)
 
 async def gainPosition(tradeData):
@@ -155,11 +156,11 @@ async def gainPosition(tradeData):
 
             target = tradeData['lastValleyPrice'] + (tradeData['lastValleyPrice'] * tradeData['buyPositionDelta'])
             
-            print('New Peak Price: ' + str(tradeData['lastPeakPrice']))
-            print('Must be greater than or equal to target to trigger a purchase, target: ' + str(target))
+            logging.debug('New Peak Price: ' + str(tradeData['lastPeakPrice']))
+            logging.debug('Must be greater than or equal to target to trigger a purchase, target: ' + str(target))
 
             if tradeData['lastPeakPrice'] >= target:
-                print('Entering buy position.')
+                logging.info('Entering buy position.')
                 await buyPosition(tradeData)
 
         elif tradeData['lastValleyPrice'] > tradeData['currentPrice']:
@@ -174,13 +175,16 @@ async def beginTrading(tradeData):
 
     while True:
         if tradeData['positionExists'] == False:
-            print('Entering gain position function.')
+            logging.info('Entering gain position function.')
             await gainPosition(tradeData)
         else:
-            print('Entering lose position function.')
+            logging.info('Entering lose position function.')
             await losePosition(tradeData)
 
 async def main():
+    # Configure the logging system
+    logging.basicConfig(filename ='botLog.log', level = logging.DEBUG)
+
     tradeSymbol = input('Enter the symbol you\'d like to trade (ex: BTCUSD): ')
     sellPositionDelta = float(input('Enter the sell position delta (ex: .02): '))
     buyPositionDelta = float(input('Enter the buy position delta (ex: .015): '))
@@ -218,8 +222,8 @@ async def main():
             'baseBalance': None
         }
 
-        print('Initial Trade Data: ')
-        print(tradeData)
+        logging.info('Initial Trade Data: ')
+        logging.info(tradeData)
 
         await beginTrading(tradeData)
 
