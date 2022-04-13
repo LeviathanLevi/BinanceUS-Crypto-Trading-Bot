@@ -44,7 +44,7 @@ async def sellPosition(tradeData):
     logging.info('ORDER:')
     logging.info(order)
 
-    # wait for order to be filled or cancelled:
+    # TODO: Fix the issue with FOK or go with GTC
     index = 0
     while tradeData['positionExists'] == True and index < 300:
         index += 1
@@ -92,7 +92,7 @@ async def buyPosition(tradeData):
     logging.info('ORDER:')
     logging.info(order)
 
-    # wait for order to be filled or cancelled:
+    # TODO: Fix the issue with FOK or go with GTC
     index = 0
     while tradeData['positionExists'] == False and index < 300:
         index += 1
