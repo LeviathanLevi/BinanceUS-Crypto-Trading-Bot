@@ -10,21 +10,32 @@ from dotenv import load_dotenv
 from binance.enums import *
 from datetime import datetime
 
-async def round_down(tradeData, quantity):
+async def roundOrderSizeDown(tradeData, quantity):
     step_size = [float(_['stepSize']) for _ in tradeData['symbolInfo']['filters'] if _['filterType'] == 'LOT_SIZE'][0]
     step_size = '%.8f' % step_size
     step_size = step_size.rstrip('0')
     decimals = len(step_size.split('.')[1])
     return math.floor(quantity * 10 ** decimals) / 10 ** decimals
 
+async def getTotalFees(order):
+    totalCommission = 0.0
+    for fill in order['fills']:
+        totalCommission += float(fill['commission'])
+        if fill['commissionasset'] != 'USD':
+            print("WE HAVE A PROBLEM: commision Asset =" + fill['commissionasset'])
+
+    return totalCommission
+
 async def sellPosition(tradeData):
     priceToSell = round(tradeData['currentPrice'], tradeData['symbolInfo']['quoteAssetPrecision'])
+
+
 
 async def buyPosition(tradeData):
     amountToSpend = tradeData['quoteTradeBalance'] - (tradeData['quoteTradeBalance'] * (float(tradeData['info']['takerCommission']) * .0001))  #Subtract fees
     priceToBuy = round(tradeData['currentPrice'], tradeData['symbolInfo']['quoteAssetPrecision'])
     orderSize = amountToSpend / priceToBuy
-    orderSize = await round_down(tradeData, orderSize)
+    orderSize = await roundOrderSizeDown(tradeData, orderSize)
     
     print('order info: ')
     print(amountToSpend)
@@ -50,22 +61,18 @@ async def buyPosition(tradeData):
         index += 1
         await asyncio.sleep(1) 
 
-        orderDetails = await tradeData['client'].get_order(symbol=tradeData['TRADESYMBOL'], orderId=orderID)
-
-        print('orderDetails')
-        print(orderDetails)
-
-        if orderDetails['status'] == ORDER_STATUS_FILLED:
+        if order['status'] == ORDER_STATUS_FILLED:
             tradeData['positionExists'] = True
-            tradeData['positionAcquiredPrice'] = float(orderDetails['price'])
-            tradeData['positionAcquiredCost'] = (float(orderDetails['origQty']) * float(orderDetails['price'])) + ((float(orderDetails['origQty']) * float(orderDetails['price'])) * (float(tradeData['info']['takerCommission']) * .0001)) 
-            tradeData['baseBalance'] = float(orderDetails['executedQty'])
+            tradeData['positionAcquiredPrice'] = float(order['price'])
+            fees = getTotalFees(order)
+            tradeData['positionAcquiredCost'] = (float(order['origQty']) * float(order['price'])) + fees
+            tradeData['baseBalance'] = float(order['executedQty'])
 
             now = datetime.now()
             dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
 
             fo = open("orders.txt", "a")
-            fo.write(dt_string + ': Buy:' + tradeData['TRADESYMBOL'] + ' Price: ' + str(orderDetails['price']) + ' Quantity: ' + str(orderDetails['origQty']) + ' Cost: ' + str(tradeData['positionAcquiredPrice']) + '\n')
+            fo.write(dt_string + ': Buy:' + tradeData['TRADESYMBOL'] + ' Price: ' + str(order['price']) + ' Quantity: ' + str(order['origQty']) + ' Cost: ' + str(tradeData['positionAcquiredPrice']) + '\n')
             fo.close()
 
             break
