@@ -18,3 +18,10 @@ API_SECRET=\<your api secret>
 There is a way to use the test net with the Binance.US API to trade with fake money for testing. If anyone would like to help me implement this enviornment that'd be greatly appreciated :) . 
 
 This bot is fairly minimal but makes for a great starting point to work on a algo trading bot. Please consider contributing to the project. 
+
+## Disclaimer
+This project is for informational purposes only. You should not construe any such information or other material as legal, tax, investment, financial, or other advice. Nothing contained here constitutes a solicitation, recommendation, endorsement, or offer by me or any third party service provider to buy or sell any securities or other financial instruments in this or in any other jurisdiction in which such solicitation or offer would be unlawful under the securities laws of such jurisdiction.
+
+If you plan to use real money, USE AT YOUR OWN RISK.
+
+Under no circumstances will I be held responsible or liable in any way for any claims, damages, losses, expenses, costs, or liabilities whatsoever, including, without limitation, any direct or indirect damages for loss of profits.
