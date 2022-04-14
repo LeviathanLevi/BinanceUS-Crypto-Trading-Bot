@@ -20,7 +20,7 @@ async def getTotalFees(order):
     totalCommission = 0.0
     for fill in order['fills']:
         totalCommission += float(fill['commission'])
-        if fill['commissionasset'] != 'USD':
+        if fill['commissionAsset'] != 'USD':
             logging.error('WE HAVE A PROBLEM: commision Asset =' + fill['commissionasset'])
             quit()
 
