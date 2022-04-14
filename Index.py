@@ -44,8 +44,8 @@ async def sellPosition(tradeData):
     logging.info('ORDER:')
     logging.info(order)
 
-    # TODO: Fix the issue with FOK or go with GTC
     index = 0
+    orderComplete = False
     while tradeData['positionExists'] == True and index < 300:
         index += 1
         await asyncio.sleep(1) 
@@ -64,10 +64,15 @@ async def sellPosition(tradeData):
             fo = open('orders.txt', 'a')
             fo.write(dt_string + ': Sell:' + tradeData['tradeSymbol'] + ' Price: ' + str(order['price']) + ' Quantity: ' + str(order['executedQty']) + ' Profit: ' + str(profit) + '\n')
             fo.close()
+            orderComplete = True
+            break
 
+        if order['status'] == ORDER_STATUS_EXPIRED:
+            logging.info('Order state is expired, failed to fill the order.')
+            orderComplete = True
             break
     
-    if tradeData['positionExists'] == True:
+    if orderComplete == False:
         await tradeData['client'].cancel_order(
         symbol=tradeData['tradeSymbol'],
         orderId=order['orderId'])
@@ -92,9 +97,9 @@ async def buyPosition(tradeData):
     logging.info('ORDER:')
     logging.info(order)
 
-    # TODO: Fix the issue with FOK or go with GTC
     index = 0
-    while tradeData['positionExists'] == False and index < 300:
+    orderComplete = False
+    while tradeData['positionExists'] == False and index < 120:
         index += 1
         await asyncio.sleep(1) 
 
@@ -114,13 +119,19 @@ async def buyPosition(tradeData):
             fo = open('orders.txt', 'a')
             fo.write(dt_string + ': Buy:' + tradeData['tradeSymbol'] + ' Price: ' + str(order['price']) + ' Quantity: ' + str(order['executedQty']) + ' Cost: ' + str(tradeData['positionAcquiredPrice']) + '\n')
             fo.close()
+            orderComplete = True
+            break
 
+        if order['status'] == ORDER_STATUS_EXPIRED:
+            logging.info('Order state is expired, failed to fill the order.')
+            orderComplete = True
             break
     
-    if tradeData['positionExists'] == False:
+    if orderComplete == False:
         await tradeData['client'].cancel_order(
         symbol=tradeData['tradeSymbol'],
         orderId=order['orderId'])
+
 
 # Loops on price updates until the price drops by the specified delta and is a profitable trade then triggers the sell
 async def losePosition(tradeData):
