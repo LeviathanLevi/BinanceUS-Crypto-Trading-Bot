@@ -29,7 +29,7 @@ async def getTotalFees(order):
 # Sells the existing position based on the trade data by placing a limit order and waiting for it to be filled 
 async def sellPosition(tradeData):
     priceToSell = round(tradeData['currentPrice'], tradeData['symbolInfo']['quoteAssetPrecision'])
-    orderSize = roundOrderSizeDown(tradeData['baseBalance'])
+    orderSize = await roundOrderSizeDown(tradeData['baseBalance'])
 
     logging.info('Placing sell order, orderSize: ' + str(orderSize) + ' priceToSell: ' + str(priceToSell))
 
@@ -57,7 +57,8 @@ async def sellPosition(tradeData):
 
             profit = ((float(order['executedQty']) * float(order['price'])) - tradeData['positionAcquiredCost']) - getTotalFees(order)
 
-            logging.info('Sell order fees: ' + str(getTotalFees(order)) + ' quantitiy: ' + str(order['executedQty']) + ' price: ' + str(order['price']))
+            fees = await getTotalFees(order)
+            logging.info('Sell order fees: ' + str(fees) + ' quantitiy: ' + str(order['executedQty']) + ' price: ' + str(order['price']))
 
             now = datetime.now()
             dt_string = now.strftime('%d/%m/%Y %H:%M:%S')
@@ -109,7 +110,7 @@ async def buyPosition(tradeData):
             tradeData['positionExists'] = True
             tradeData['positionAcquiredPrice'] = float(order['price'])
             tradeData['baseBalance'] = float(order['executedQty'])
-            fees = getTotalFees(order)
+            fees = await getTotalFees(order)
             tradeData['positionAcquiredCost'] = (tradeData['baseBalance'] * tradeData['positionAcquiredPrice']) + fees
 
             logging.info('positionAcquiredPrice: ' + str(tradeData['positionAcquiredPrice']) + ' baseBalance: ' + str(tradeData['baseBalance']) + ' fees: ' + fees + ' positionAcquiredCost: ' + str(tradeData['positionAcquiredPrice']))
