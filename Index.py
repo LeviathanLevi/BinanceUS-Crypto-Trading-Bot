@@ -16,12 +16,16 @@ async def roundOrderSizeDown(tradeData, quantity):
     return math.floor(quantity * 10 ** decimals) / 10 ** decimals
 
 # Sums the commission fees paid in the order fills
-async def getTotalFees(order):
+async def getTotalFees(tradeData, order):
     totalCommission = 0.0
     for fill in order['fills']:
-        totalCommission += float(fill['commission'])
-        if fill['commissionAsset'] != 'USD':
-            logging.error('WE HAVE A PROBLEM: commision Asset =' + fill['commissionAsset'])
+        if fill['commissionAsset'] == 'USD':
+            totalCommission += float(fill['commission'])
+        elif fill['commissionAsset'] == 'BNB':
+            symbol = await tradeData['client'].get_ticker(symbol='BNBUSD')
+            totalCommission = float(symbol['lastPrice']) * float(fill['commission'])
+        else:
+            logging.error('WE HAVE A PROBLEM: commision Asset is not BNB or USD. Please add the logic to fix this. Asset: ' + fill['commissionAsset'])
             quit()
 
     return totalCommission
@@ -55,9 +59,9 @@ async def sellPosition(tradeData):
 
             tradeData['positionExists'] = False
 
-            profit = ((float(order['executedQty']) * float(order['price'])) - tradeData['positionAcquiredCost']) - getTotalFees(order)
+            profit = ((float(order['executedQty']) * float(order['price'])) - tradeData['positionAcquiredCost']) - getTotalFees(tradeData, order)
 
-            fees = await getTotalFees(order)
+            fees = await getTotalFees(tradeData, order)
             logging.info('Sell order fees: ' + str(fees) + ' quantitiy: ' + str(order['executedQty']) + ' price: ' + str(order['price']))
 
             now = datetime.now()
@@ -110,7 +114,7 @@ async def buyPosition(tradeData):
             tradeData['positionExists'] = True
             tradeData['positionAcquiredPrice'] = float(order['price'])
             tradeData['baseBalance'] = float(order['executedQty'])
-            fees = await getTotalFees(order)
+            fees = await getTotalFees(tradeData, order)
             tradeData['positionAcquiredCost'] = (tradeData['baseBalance'] * tradeData['positionAcquiredPrice']) + fees
 
             logging.info('positionAcquiredPrice: ' + str(tradeData['positionAcquiredPrice']) + ' baseBalance: ' + str(tradeData['baseBalance']) + ' fees: ' + fees + ' positionAcquiredCost: ' + str(tradeData['positionAcquiredPrice']))
