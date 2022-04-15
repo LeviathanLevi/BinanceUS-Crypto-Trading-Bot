@@ -117,7 +117,7 @@ async def buyPosition(tradeData):
             fees = await getTotalFees(tradeData, order)
             tradeData['positionAcquiredCost'] = (tradeData['baseBalance'] * tradeData['positionAcquiredPrice']) + fees
 
-            logging.info('positionAcquiredPrice: ' + str(tradeData['positionAcquiredPrice']) + ' baseBalance: ' + str(tradeData['baseBalance']) + ' fees: ' + fees + ' positionAcquiredCost: ' + str(tradeData['positionAcquiredPrice']))
+            logging.info('positionAcquiredPrice: ' + str(tradeData['positionAcquiredPrice']) + ' baseBalance: ' + str(tradeData['baseBalance']) + ' fees: ' + str(fees) + ' positionAcquiredCost: ' + str(tradeData['positionAcquiredPrice']))
 
             now = datetime.now()
             dt_string = now.strftime('%d/%m/%Y %H:%M:%S')
