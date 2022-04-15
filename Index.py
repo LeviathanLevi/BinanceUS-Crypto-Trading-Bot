@@ -32,7 +32,7 @@ async def getTotalFees(tradeData, order):
 
 # Sells the existing position based on the trade data by placing a limit order and waiting for it to be filled 
 async def sellPosition(tradeData):
-    priceToSell = round(tradeData['currentPrice'], tradeData['symbolInfo']['quoteAssetPrecision'])
+    priceToSell = round((tradeData['currentPrice'] - (tradeData['currentPrice'] * tradeData['orderPriceDelta'])), tradeData['symbolInfo']['quoteAssetPrecision'])
     orderSize = await roundOrderSizeDown(tradeData['baseBalance'])
 
     logging.info('Placing sell order, orderSize: ' + str(orderSize) + ' priceToSell: ' + str(priceToSell))
@@ -85,7 +85,7 @@ async def sellPosition(tradeData):
 # Buys into a new position by placing a limit order and waiting for it to be filled
 async def buyPosition(tradeData):
     amountToSpend = tradeData['quoteTradeBalance'] - (tradeData['quoteTradeBalance'] * (float(tradeData['accountInfo']['takerCommission']) * .0001))  # Subtract fees
-    priceToBuy = round(tradeData['currentPrice'], tradeData['symbolInfo']['quoteAssetPrecision'])
+    priceToBuy = round((tradeData['currentPrice'] + (tradeData['currentPrice'] * tradeData['orderPriceDelta'])), tradeData['symbolInfo']['quoteAssetPrecision'])
     orderSize = amountToSpend / priceToBuy
     orderSize = await roundOrderSizeDown(tradeData, orderSize)
     
@@ -152,7 +152,8 @@ async def losePosition(tradeData):
             tradeData['lastValleyPrice'] = tradeData['currentPrice']
 
             target = tradeData['lastPeakPrice'] - (tradeData['lastPeakPrice'] * tradeData['sellPositionDelta'])
-            receivedValue = (tradeData['currentPrice'] * tradeData['baseBalance']) - ((tradeData['currentPrice'] * tradeData['baseBalance']) * ((float(tradeData['accountInfo']['takerCommission']) * .0001))) # Should Taker or Maker fees be used in this calculation?
+            sellPrice = tradeData['currentPrice'] - (tradeData['currentPrice'] * tradeData['orderPriceDelta'])
+            receivedValue = (sellPrice * tradeData['baseBalance']) - ((sellPrice * tradeData['baseBalance']) * ((float(tradeData['accountInfo']['takerCommission']) * .0001))) # Should Taker or Maker fees be used in this calculation?
 
             logging.debug('New Valley Price: ' + str(tradeData['lastValleyPrice']))
             logging.debug('Must be less than or equal to target to trigger a sell, target: ' + str(target) + ' and ' + 'the received value: ' + str(receivedValue) + ' must be greater than the  ' + 'positionAcquiredCost: ' + str(tradeData['positionAcquiredCost']))
@@ -229,6 +230,7 @@ async def main():
             'tradeSymbol': tradeSymbol,
             'sellPositionDelta': sellPositionDelta,
             'buyPositionDelta': buyPositionDelta,
+            'orderPriceDelta': .001,
             'client': client,
             'symbolInfo': symbolInfo,
             'accountInfo': accountInfo,
