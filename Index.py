@@ -31,7 +31,7 @@ async def getTotalFees(tradeData, order):
             totalCommission += float(fill['commission'])
         elif fill['commissionAsset'] == 'BNB':
             symbol = await tradeData['client'].get_ticker(symbol='BNBUSD')
-            totalCommission = float(symbol['lastPrice']) * float(fill['commission'])
+            totalCommission += float(symbol['lastPrice']) * float(fill['commission'])
         else:
             logging.error('WE HAVE A PROBLEM: commision Asset is not BNB or USD. Please add the logic to fix this. Asset: ' + fill['commissionAsset'])
             quit()
