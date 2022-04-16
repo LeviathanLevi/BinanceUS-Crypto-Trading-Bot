@@ -125,12 +125,12 @@ async def buyPosition(tradeData):
             fees = await getTotalFees(tradeData, order)
             tradeData['positionAcquiredCost'] = (tradeData['baseBalance'] * tradeData['positionAcquiredPrice']) + fees
 
-            logging.info('positionAcquiredPrice: ' + str(tradeData['positionAcquiredPrice']) + ' baseBalance: ' + str(tradeData['baseBalance']) + ' fees: ' + str(fees) + ' positionAcquiredCost: ' + str(tradeData['positionAcquiredPrice']))
+            logging.info('positionAcquiredPrice: ' + str(tradeData['positionAcquiredPrice']) + ' baseBalance: ' + str(tradeData['baseBalance']) + ' fees: ' + str(fees) + ' positionAcquiredCost: ' + str(tradeData['positionAcquiredCost']))
 
             now = datetime.now()
             dt_string = now.strftime('%d/%m/%Y %H:%M:%S')
             fo = open('orders.txt', 'a')
-            fo.write(dt_string + ': Buy:' + tradeData['tradeSymbol'] + ' Price: ' + str(order['price']) + ' Quantity: ' + str(order['executedQty']) + ' Cost: ' + str(tradeData['positionAcquiredPrice']) + '\n')
+            fo.write(dt_string + ': Buy:' + tradeData['tradeSymbol'] + ' Price: ' + str(order['price']) + ' Quantity: ' + str(order['executedQty']) + ' Cost: ' + str(tradeData['positionAcquiredCost']) + '\n')
             fo.close()
             orderComplete = True
             break
