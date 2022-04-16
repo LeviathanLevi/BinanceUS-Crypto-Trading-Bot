@@ -15,6 +15,14 @@ async def roundOrderSizeDown(tradeData, quantity):
     decimals = len(step_size.split('.')[1])
     return math.floor(quantity * 10 ** decimals) / 10 ** decimals
 
+# Rounds the order price precision down based on the maximum precision level allowed by the PRICE_FILTER tickSize
+async def roundOrderPriceDown(tradeData, price):
+    step_size = [float(_['tickSize']) for _ in tradeData['symbolInfo']['filters'] if _['filterType'] == 'PRICE_FILTER'][0]
+    step_size = '%.8f' % step_size
+    step_size = step_size.rstrip('0')
+    decimals = len(step_size.split('.')[1])
+    return math.floor(price * 10 ** decimals) / 10 ** decimals
+
 # Sums the commission fees paid in the order fills
 async def getTotalFees(tradeData, order):
     totalCommission = 0.0
@@ -32,7 +40,7 @@ async def getTotalFees(tradeData, order):
 
 # Sells the existing position based on the trade data by placing a limit order and waiting for it to be filled 
 async def sellPosition(tradeData):
-    priceToSell = round((tradeData['currentPrice'] - (tradeData['currentPrice'] * tradeData['orderPriceDelta'])), tradeData['symbolInfo']['quoteAssetPrecision'])
+    priceToSell = await roundOrderPriceDown(tradeData, (tradeData['currentPrice'] - (tradeData['currentPrice'] * tradeData['orderPriceDelta'])))
     orderSize = await roundOrderSizeDown(tradeData['baseBalance'])
 
     logging.info('Placing sell order, orderSize: ' + str(orderSize) + ' priceToSell: ' + str(priceToSell))
@@ -85,7 +93,7 @@ async def sellPosition(tradeData):
 # Buys into a new position by placing a limit order and waiting for it to be filled
 async def buyPosition(tradeData):
     amountToSpend = tradeData['quoteTradeBalance'] - (tradeData['quoteTradeBalance'] * (float(tradeData['accountInfo']['takerCommission']) * .0001))  # Subtract fees
-    priceToBuy = round((tradeData['currentPrice'] + (tradeData['currentPrice'] * tradeData['orderPriceDelta'])), tradeData['symbolInfo']['quoteAssetPrecision'])
+    priceToBuy = await roundOrderPriceDown(tradeData, (tradeData['currentPrice'] + (tradeData['currentPrice'] * tradeData['orderPriceDelta'])))
     orderSize = amountToSpend / priceToBuy
     orderSize = await roundOrderSizeDown(tradeData, orderSize)
     
