@@ -238,7 +238,7 @@ async def main():
             'tradeSymbol': tradeSymbol,
             'sellPositionDelta': sellPositionDelta,
             'buyPositionDelta': buyPositionDelta,
-            'orderPriceDelta': .001,
+            'orderPriceDelta': .003,
             'client': client,
             'symbolInfo': symbolInfo,
             'accountInfo': accountInfo,
