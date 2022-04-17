@@ -40,6 +40,9 @@ async def getTotalFees(tradeData, order):
 
 # Sums the fill prices paid
 def getAverageFillPrice(order):
+    totalPrice = 0.0
+    totalWeight = 0.0
+    
     for fill in order['fills']:   
         weight = float(fill['qty'])
         price = float(fill['price'])
