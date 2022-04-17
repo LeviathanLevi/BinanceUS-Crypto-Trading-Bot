@@ -2,8 +2,6 @@ import os
 import asyncio
 import math
 import logging
-import pandas as pd
-from numpy import average
 from binance import AsyncClient, BinanceSocketManager
 from dotenv import load_dotenv
 from binance.enums import *
