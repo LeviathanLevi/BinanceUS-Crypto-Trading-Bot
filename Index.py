@@ -2,6 +2,8 @@ import os
 import asyncio
 import math
 import logging
+import pandas as pd
+from numpy import average
 from binance import AsyncClient, BinanceSocketManager
 from dotenv import load_dotenv
 from binance.enums import *
@@ -37,6 +39,17 @@ async def getTotalFees(tradeData, order):
             quit()
 
     return totalCommission
+
+# Sums the fill prices paid
+def getAverageFillPrice(order):
+    for fill in order['fills']:   
+        weight = float(fill['qty'])
+        price = float(fill['price'])
+
+        totalPrice += price * weight
+        totalWeight += weight 
+
+    return (totalPrice / totalWeight)
 
 # Sells the existing position based on the trade data by placing a limit order and waiting for it to be filled 
 async def sellPosition(tradeData):
@@ -120,7 +133,7 @@ async def buyPosition(tradeData):
             logging.info('Order state is filled.')
 
             tradeData['positionExists'] = True
-            tradeData['positionAcquiredPrice'] = float(order['price'])
+            tradeData['positionAcquiredPrice'] = getAverageFillPrice(order)
             tradeData['baseBalance'] = float(order['executedQty'])
             fees = await getTotalFees(tradeData, order)
             tradeData['positionAcquiredCost'] = (tradeData['baseBalance'] * tradeData['positionAcquiredPrice']) + fees
@@ -238,7 +251,7 @@ async def main():
             'tradeSymbol': tradeSymbol,
             'sellPositionDelta': sellPositionDelta,
             'buyPositionDelta': buyPositionDelta,
-            'orderPriceDelta': .003,
+            'orderPriceDelta': .002,
             'client': client,
             'symbolInfo': symbolInfo,
             'accountInfo': accountInfo,
