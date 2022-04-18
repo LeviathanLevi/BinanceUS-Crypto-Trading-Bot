@@ -55,7 +55,7 @@ def getAverageFillPrice(order):
 # Sells the existing position based on the trade data by placing a limit order and waiting for it to be filled 
 async def sellPosition(tradeData):
     priceToSell = await roundOrderPriceDown(tradeData, (tradeData['currentPrice'] - (tradeData['currentPrice'] * tradeData['orderPriceDelta'])))
-    orderSize = await roundOrderSizeDown(tradeData['baseBalance'])
+    orderSize = await roundOrderSizeDown(tradeData, tradeData['baseBalance'])
 
     logging.info('Placing sell order, orderSize: ' + str(orderSize) + ' priceToSell: ' + str(priceToSell))
 
