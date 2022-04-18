@@ -81,9 +81,8 @@ async def sellPosition(tradeData):
 
             tradeData['positionExists'] = False
 
-            profit = ((float(order['executedQty']) * float(order['price'])) - tradeData['positionAcquiredCost']) - getTotalFees(tradeData, order)
-
             fees = await getTotalFees(tradeData, order)
+            profit = ((float(order['executedQty']) * float(order['price'])) - tradeData['positionAcquiredCost']) - fees
             logging.info('Sell order fees: ' + str(fees) + ' quantitiy: ' + str(order['executedQty']) + ' price: ' + str(order['price']))
 
             now = datetime.now()
