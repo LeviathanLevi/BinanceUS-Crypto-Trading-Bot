@@ -66,7 +66,7 @@ async def sellPosition(tradeData):
     priceToSell = await roundOrderPriceDown(tradeData, (tradeData['currentPrice'] - (tradeData['currentPrice'] * tradeData['orderPriceDelta'])))
     orderSize = await roundOrderSizeDown(tradeData, tradeData['baseBalance'])
 
-    logging.info('Placing sell order, orderSize: ' + str(orderSize) + ' priceToSell: ' + str(priceToSell))
+    logging.warning('Placing sell order, orderSize: ' + str(orderSize) + ' priceToSell: ' + str(priceToSell))
 
     order = await tradeData['client'].create_order(
         symbol=tradeData['tradeSymbol'],
@@ -76,8 +76,8 @@ async def sellPosition(tradeData):
         quantity=orderSize,
         price=priceToSell)
 
-    logging.info('ORDER:')
-    logging.info(order)
+    logging.warning('ORDER:')
+    logging.warning(order)
 
     index = 0
     orderComplete = False
@@ -86,14 +86,14 @@ async def sellPosition(tradeData):
         await asyncio.sleep(1) 
 
         if order['status'] == ORDER_STATUS_FILLED:
-            logging.info('Order state is filled.')
+            logging.warning('Order state is filled.')
 
             tradeData['positionExists'] = False
 
             fees = await getTotalFees(tradeData, order)
             averagePricePaid = getAverageFillPrice(order)
             profit = ((float(order['executedQty']) * averagePricePaid) - tradeData['positionAcquiredCost']) - fees
-            logging.info('Sell order fees: ' + str(fees) + ' quantitiy: ' + str(order['executedQty']) + ' price: ' + str(order['price']))
+            logging.warning('Sell order fees: ' + str(fees) + ' quantitiy: ' + str(order['executedQty']) + ' price: ' + str(order['price']))
 
             now = datetime.now()
             dt_string = now.strftime('%d/%m/%Y %H:%M:%S')
@@ -104,7 +104,7 @@ async def sellPosition(tradeData):
             break
 
         if order['status'] == ORDER_STATUS_EXPIRED:
-            logging.info('Order state is expired, failed to fill the order.')
+            logging.warning('Order state is expired, failed to fill the order.')
             orderComplete = True
             break
     
@@ -120,7 +120,7 @@ async def buyPosition(tradeData):
     orderSize = amountToSpend / priceToBuy
     orderSize = await roundOrderSizeDown(tradeData, orderSize)
     
-    logging.info('Placing buy order, orderSize: ' + str(orderSize) + ' priceToBuy: ' + str(priceToBuy))
+    logging.warning('Placing buy order, orderSize: ' + str(orderSize) + ' priceToBuy: ' + str(priceToBuy))
 
     order = await tradeData['client'].create_order(
         symbol=tradeData['tradeSymbol'],
@@ -130,8 +130,8 @@ async def buyPosition(tradeData):
         quantity=orderSize,
         price=priceToBuy)
 
-    logging.info('ORDER:')
-    logging.info(order)
+    logging.warning('ORDER:')
+    logging.warning(order)
 
     index = 0
     orderComplete = False
@@ -140,7 +140,7 @@ async def buyPosition(tradeData):
         await asyncio.sleep(1) 
 
         if order['status'] == ORDER_STATUS_FILLED:
-            logging.info('Order state is filled.')
+            logging.warning('Order state is filled.')
 
             tradeData['positionExists'] = True
             tradeData['positionAcquiredPrice'] = getAverageFillPrice(order)
@@ -148,7 +148,7 @@ async def buyPosition(tradeData):
             fees = await getTotalFees(tradeData, order)
             tradeData['positionAcquiredCost'] = (tradeData['baseBalance'] * tradeData['positionAcquiredPrice']) + fees
 
-            logging.info('positionAcquiredPrice: ' + str(tradeData['positionAcquiredPrice']) + ' baseBalance: ' + str(tradeData['baseBalance']) + ' fees: ' + str(fees) + ' positionAcquiredCost: ' + str(tradeData['positionAcquiredCost']))
+            logging.warning('positionAcquiredPrice: ' + str(tradeData['positionAcquiredPrice']) + ' baseBalance: ' + str(tradeData['baseBalance']) + ' fees: ' + str(fees) + ' positionAcquiredCost: ' + str(tradeData['positionAcquiredCost']))
 
             now = datetime.now()
             dt_string = now.strftime('%d/%m/%Y %H:%M:%S')
@@ -159,7 +159,7 @@ async def buyPosition(tradeData):
             break
 
         if order['status'] == ORDER_STATUS_EXPIRED:
-            logging.info('Order state is expired, failed to fill the order.')
+            logging.warning('Order state is expired, failed to fill the order.')
             orderComplete = True
             break
     
@@ -185,11 +185,11 @@ async def losePosition(tradeData):
             sellPrice = tradeData['currentPrice'] - (tradeData['currentPrice'] * tradeData['orderPriceDelta'])
             receivedValue = (sellPrice * tradeData['baseBalance']) - ((sellPrice * tradeData['baseBalance']) * ((float(tradeData['accountInfo']['takerCommission']) * .0001))) # Should Taker or Maker fees be used in this calculation?
 
-            logging.debug('New Valley Price: ' + str(tradeData['lastValleyPrice']))
-            logging.debug('Must be less than or equal to target to trigger a sell, target: ' + str(target) + ' and ' + 'the received value: ' + str(receivedValue) + ' must be greater than the  ' + 'positionAcquiredCost: ' + str(tradeData['positionAcquiredCost']))
+            logging.info('New Valley Price: ' + str(tradeData['lastValleyPrice']))
+            logging.info('Must be less than or equal to target to trigger a sell, target: ' + str(target) + ' and ' + 'the received value: ' + str(receivedValue) + ' must be greater than the  ' + 'positionAcquiredCost: ' + str(tradeData['positionAcquiredCost']))
 
             if (tradeData['lastValleyPrice'] <= target) and (receivedValue > tradeData['positionAcquiredCost']): 
-                logging.info('Entering sell position.')
+                logging.warning('Entering sell position.')
                 await sellPosition(tradeData)
 
 # Loops on price updates until the price increases by the specified delta then triggers the buy
@@ -202,11 +202,11 @@ async def gainPosition(tradeData):
 
             target = tradeData['lastValleyPrice'] + (tradeData['lastValleyPrice'] * tradeData['buyPositionDelta'])
             
-            logging.debug('New Peak Price: ' + str(tradeData['lastPeakPrice']))
-            logging.debug('Must be greater than or equal to target to trigger a purchase, target: ' + str(target))
+            logging.info('New Peak Price: ' + str(tradeData['lastPeakPrice']))
+            logging.info('Must be greater than or equal to target to trigger a purchase, target: ' + str(target))
 
             if tradeData['lastPeakPrice'] >= target:
-                logging.info('Entering buy position.')
+                logging.warning('Entering buy position.')
                 await buyPosition(tradeData)
 
         elif tradeData['lastValleyPrice'] > tradeData['currentPrice']:
@@ -221,16 +221,16 @@ async def beginTrading(tradeData):
 
     while True:
         if tradeData['positionExists'] == False:
-            logging.info('Entering gain position function.')
+            logging.warning('Entering gain position function.')
             await gainPosition(tradeData)
         else:
-            logging.info('Entering lose position function.')
+            logging.warning('Entering lose position function.')
             await losePosition(tradeData)
 
 # Configures the logging, gets input from the user, configures the client, gets symbol and account info, initializes the socket manager
 async def main():
     # Configure the logging system
-    logging.basicConfig(filename ='botLog.log', level = logging.INFO)
+    logging.basicConfig(filename ='botLog.log', level = logging.WARNING)
 
     tradeSymbol = input('Enter the symbol you\'d like to trade (ex: BTCUSD): ')
     sellPositionDelta = float(input('Enter the sell position delta (ex: .02): '))
@@ -270,8 +270,8 @@ async def main():
             'baseBalance': None
         }
 
-        logging.info('Initial Trade Data: ')
-        logging.info(tradeData)
+        logging.warning('Initial Trade Data: ')
+        logging.warning(tradeData)
 
         print('Beginning trading, see log file for more information. All orders placed by bot will be recorded in orders.txt')
 
