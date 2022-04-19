@@ -52,6 +52,15 @@ def getAverageFillPrice(order):
 
     return (totalPrice / totalWeight)
 
+async def updatePriceFromSocket(tradeData):
+    socketPriceUpdate = await tradeData['webSocket'].recv()
+
+    while 'p' not in socketPriceUpdate:
+        socketPriceUpdate = await tradeData['webSocket'].recv()
+    
+    return float(socketPriceUpdate['p'])
+
+
 # Sells the existing position based on the trade data by placing a limit order and waiting for it to be filled 
 async def sellPosition(tradeData):
     priceToSell = await roundOrderPriceDown(tradeData, (tradeData['currentPrice'] - (tradeData['currentPrice'] * tradeData['orderPriceDelta'])))
@@ -163,8 +172,7 @@ async def buyPosition(tradeData):
 # Loops on price updates until the price drops by the specified delta and is a profitable trade then triggers the sell
 async def losePosition(tradeData):
     while tradeData['positionExists'] == True:
-        socketPriceUpdate = await tradeData['webSocket'].recv()
-        tradeData['currentPrice'] = float(socketPriceUpdate['p'])
+        tradeData['currentPrice'] = await updatePriceFromSocket(tradeData)
 
         if tradeData['lastPeakPrice'] < tradeData['currentPrice']:
             tradeData['lastPeakPrice'] = tradeData['currentPrice']
@@ -187,8 +195,7 @@ async def losePosition(tradeData):
 # Loops on price updates until the price increases by the specified delta then triggers the buy
 async def gainPosition(tradeData):
     while tradeData['positionExists'] == False:
-        socketPriceUpdate = await tradeData['webSocket'].recv()
-        tradeData['currentPrice'] = float(socketPriceUpdate['p'])
+        tradeData['currentPrice'] = await updatePriceFromSocket(tradeData)
 
         if tradeData['lastPeakPrice'] < tradeData['currentPrice']:
             tradeData['lastPeakPrice'] = tradeData['currentPrice'] #new peak price hit
@@ -208,8 +215,7 @@ async def gainPosition(tradeData):
 
 # Begins an infinite trading loop that alternates between gainPosition and losePosition based on if the position exists
 async def beginTrading(tradeData):
-    socketPriceUpdate = await tradeData['webSocket'].recv() 
-    tradeData['currentPrice'] = float(socketPriceUpdate['p'])
+    tradeData['currentPrice'] = await updatePriceFromSocket(tradeData)
     tradeData['lastPeakPrice'] = tradeData['currentPrice']
     tradeData['lastValleyPrice'] = tradeData['currentPrice']
 
